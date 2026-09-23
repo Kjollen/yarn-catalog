@@ -1,6 +1,6 @@
-import { compressImage } from '../utils/imageCompression';
 import React, { useState, useRef } from 'react';
 import { YarnItem } from '../types';
+import { compressImage } from '../utils/imageCompression';
 
 interface YarnFormProps {
   onSubmit: (item: Omit<YarnItem, 'id' | 'dateAdded'>) => void;
@@ -29,17 +29,17 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fileToBase64 = async (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result as string;
-      const compressed = await compressImage(base64, 1200, 1200, 0.8);
-      resolve(compressed);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const compressed = await compressImage(base64, 1200, 1200, 0.8);
+        resolve(compressed);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,8 +116,7 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
       totalPrice,
     });
   };
-
-  return (
+    return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8 max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
@@ -231,8 +230,7 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
             <label className="block text-sm font-medium text-gray-700 mb-1">Количество бобин</label>
             <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
           </div>
-
-          <div className="border-t pt-4">
+           <div className="border-t pt-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">
               <i className="fas fa-shopping-bag mr-2 text-purple-500"></i>
               Информация о покупке
