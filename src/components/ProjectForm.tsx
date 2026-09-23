@@ -1,3 +1,4 @@
+import { compressImage } from '../utils/imageCompression';
 import React, { useState, useRef } from 'react';
 import { Project } from '../types';
 
@@ -21,14 +22,18 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSubmit, onCancel, initialDa
   const [pasteHint, setPasteHint] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
+  const fileToBase64 = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      const compressed = await compressImage(base64, 1200, 1200, 0.8);
+      resolve(compressed);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
