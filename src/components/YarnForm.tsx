@@ -40,6 +40,7 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
     }
   };
 
+  // Вставка из буфера обмена (Ctrl+V / Cmd+V)
   const handlePaste = async (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -59,10 +60,11 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
     }
   };
 
+  // Кнопка "Вставить из буфера"
   const handlePasteFromClipboard = async () => {
     try {
       if (!navigator.clipboard || !navigator.clipboard.read) {
-        setPasteHint('Используйте долгое нажатие → Вставить в области фото, или Ctrl+V.');
+        setPasteHint('Ваш браузер не поддерживает чтение буфера. Используйте Ctrl+V / долгое нажатие → Вставить.');
         setTimeout(() => setPasteHint(''), 3000);
         return;
       }
@@ -81,7 +83,7 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
       setPasteHint('В буфере нет изображения');
       setTimeout(() => setPasteHint(''), 2000);
     } catch (err) {
-      setPasteHint('Нет доступа к буферу. Разрешите доступ или используйте долгое нажатие → Вставить.');
+      setPasteHint('Нет доступа к буферу. Разрешите доступ или используйте Ctrl+V.');
       setTimeout(() => setPasteHint(''), 3000);
     }
   };
@@ -114,6 +116,7 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5" onPaste={handlePaste}>
+          {/* Photo upload */}
           <div className="flex flex-col items-center">
             <div
               onClick={() => fileInputRef.current?.click()}
@@ -165,70 +168,172 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
             )}
           </div>
 
+          {/* Name, Brand and Article */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Например: Alize Lana Gold" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Название *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="Например: Alize Lana Gold"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Производитель</label>
-              <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Например: Alize" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Производитель
+              </label>
+              <input
+                type="text"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="Например: Alize"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Артикул</label>
-              <input type="text" value={article} onChange={(e) => setArticle(e.target.value)} placeholder="Например: 104" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Артикул
+              </label>
+              <input
+                type="text"
+                value={article}
+                onChange={(e) => setArticle(e.target.value)}
+                placeholder="Например: 104"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              />
             </div>
           </div>
 
+          {/* Composition */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Состав</label>
-            <input type="text" value={composition} onChange={(e) => setComposition(e.target.value)} placeholder="Например: 49% шерсть, 51% акрил" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Состав
+            </label>
+            <input
+              type="text"
+              value={composition}
+              onChange={(e) => setComposition(e.target.value)}
+              placeholder="Например: 49% шерсть, 51% акрил"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+            />
           </div>
 
+          {/* Color */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Цвет / оттенок</label>
-              <input type="text" value={color} onChange={(e) => setColor(e.target.value)} placeholder="Например: бежевый меланж" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Цвет / оттенок
+              </label>
+              <input
+                type="text"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="Например: бежевый меланж"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Цвет (выбрать)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Цвет (выбрать)
+              </label>
               <div className="flex items-center gap-3">
-                <input type="color" value={colorHex} onChange={(e) => setColorHex(e.target.value)} className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer" />
+                <input
+                  type="color"
+                  value={colorHex}
+                  onChange={(e) => setColorHex(e.target.value)}
+                  className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
+                />
                 <span className="text-sm text-gray-500">{colorHex}</span>
               </div>
             </div>
           </div>
 
+          {/* Weight and Meterage */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Общий вес бобины</label>
-              <input type="text" value={totalWeight} onChange={(e) => setTotalWeight(e.target.value)} placeholder="850 г" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Общий вес бобины
+              </label>
+              <input
+                type="text"
+                value={totalWeight}
+                onChange={(e) => setTotalWeight(e.target.value)}
+                placeholder="850 г"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Метраж на 100 г</label>
-              <input type="text" value={meteragePer100g} onChange={(e) => setMeteragePer100g(e.target.value)} placeholder="350 м" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Метраж на 100 г
+              </label>
+              <input
+                type="text"
+                value={meteragePer100g}
+                onChange={(e) => setMeteragePer100g(e.target.value)}
+                placeholder="350 м"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Спицы</label>
-              <input type="text" value={needleSize} onChange={(e) => setNeedleSize(e.target.value)} placeholder="4-5 мм" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Спицы
+              </label>
+              <input
+                type="text"
+                value={needleSize}
+                onChange={(e) => setNeedleSize(e.target.value)}
+                placeholder="4-5 мм"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              />
             </div>
           </div>
 
+          {/* Quantity */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Количество бобин</label>
-            <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Количество бобин
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+            />
           </div>
 
+          {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Заметки</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Для чего подходит, особенности вязания..." rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Заметки
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Для чего подходит, особенности вязания..."
+              rows={3}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none"
+            />
           </div>
 
+          {/* Buttons */}
           <div className="flex gap-3 pt-4 border-t">
-            <button type="submit" className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors">
+            <button
+              type="submit"
+              className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors"
+            >
               {initialData ? 'Сохранить' : 'Добавить'}
             </button>
-            <button type="button" onClick={onCancel} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
               Отмена
             </button>
           </div>
