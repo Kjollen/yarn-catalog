@@ -6,30 +6,26 @@ export interface YarnItem {
   composition: string;
   color: string;
   colorHex: string;
-  totalWeight: string;
-  meteragePer100g: string;
-  needleSize: string;
+  totalWeight: string; // общий вес бобины, например "850 г"
+  meteragePer100g: string; // метраж на 100 г, например "350 м"
+  needleSize: string; // рекомендуемый размер спиц
   notes: string;
-  photo: string;
-  quantity: number;
-  shop: string;
-  orderNumber: string;
-  pricePerGram: string;
-  totalPrice: string;
+  photo: string; // base64
+  quantity: number; // количество бобин
   dateAdded: string;
 }
 
 export interface Project {
   id: string;
-  yarnItemId: string;
-  name: string;
-  photo: string;
-  yarnUsedWeight: string;
-  needleSize: string;
-  pattern: string;
-  notes: string;
-  startDate: string;
-  endDate: string;
-  status: 'in-progress' | 'completed' | 'planned';
+  yarnItemId: string; // ID пряжи, из которой вязали
+  name: string; // название изделия (например, "Кардиган для мамы")
+  photo: string; // фото готового изделия
+  yarnUsedWeight: string; // сколько ушло пряжи (например, "450 г")
+  needleSize: string; // какими спицами вязался
+  pattern: string; // описание/ссылка на схему
+  notes: string; // заметки
+  startDate: string; // когда начали
+  endDate: string; // когда закончили (если закончили)
+  status: 'in-progress' | 'completed' | 'planned'; // статус
   dateAdded: string;
 }
