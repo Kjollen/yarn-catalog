@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Project } from '../types';
+import { Project, YarnItem } from '../types';
 
 interface ProjectCardProps {
   project: Project;
+  yarnItems: YarnItem[];
   onEdit: (project: Project) => void;
   onDelete: (id: string) => void;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDelete }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, onDelete }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -20,6 +21,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDelete }) 
       case 'planned':
         return <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">◷ Запланировано</span>;
     }
+  };
+
+  const getYarnName = (yarnItemId: string) => {
+    const yarn = yarnItems.find(y => y.id === yarnItemId);
+    return yarn ? `${yarn.name}${yarn.brand ? ` (${yarn.brand})` : ''}` : 'Неизвестная пряжа';
   };
 
   return (
@@ -44,22 +50,21 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDelete }) 
           </div>
 
           <div className="space-y-1 text-sm text-gray-600">
-            {project.yarnUsedWeight && (
-              <p className="flex items-center gap-2">
-                <i className="fas fa-weight-hanging text-xs text-purple-400 w-4"></i>
-                Расход: {project.yarnUsedWeight}
-              </p>
+            {project.yarnUsage && project.yarnUsage.length > 0 ? (
+              project.yarnUsage.map((usage, index) => (
+                <p key={index} className="flex items-center gap-2">
+                  <i className="fas fa-yarn-ball text-xs text-purple-400 w-4"></i>
+                  <span className="truncate">{getYarnName(usage.yarnItemId)}</span>
+                  {usage.weight && <span className="ml-auto text-xs text-gray-500">{usage.weight}</span>}
+                </p>
+              ))
+            ) : (
+              <p className="text-gray-400 italic">Пряжа не указана</p>
             )}
             {project.needleSize && (
               <p className="flex items-center gap-2">
                 <i className="fas fa-ruler text-xs text-purple-400 w-4"></i>
                 Спицы: {project.needleSize}
-              </p>
-            )}
-            {project.pattern && (
-              <p className="flex items-center gap-2">
-                <i className="fas fa-book text-xs text-purple-400 w-4"></i>
-                {project.pattern}
               </p>
             )}
           </div>
@@ -119,17 +124,30 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onDelete }) 
               <div className="mb-4">{getStatusBadge()}</div>
 
               <div className="space-y-3">
-                {project.yarnUsedWeight && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-weight-hanging text-purple-600 text-sm"></i>
+                {project.yarnUsage && project.yarnUsage.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className="fas fa-yarn-ball text-purple-500"></i>
+                      <p className="text-sm font-semibold text-gray-700">Пряжа</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Расход пряжи</p>
-                      <p className="text-gray-800">{project.yarnUsedWeight}</p>
+                    <div className="space-y-2 pl-2">
+                      {project.yarnUsage.map((usage, index) => (
+                        <div key={index} className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i className="fas fa-yarn-ball text-purple-600 text-sm"></i>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-gray-800">{getYarnName(usage.yarnItemId)}</p>
+                            {usage.weight && (
+                              <p className="text-xs text-gray-500">Расход: {usage.weight}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
+
                 {project.needleSize && (
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
