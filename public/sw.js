@@ -1,46 +1,31 @@
-const CACHE_NAME = 'yarn-catalog-v1';
-const urlsToCache = [
-  '/',
-  '/index.html'
-];
+// Service Worker для каталога пряжи
+// Версия 2.0 - без кэширования
 
-// Install event
+const CACHE_NAME = 'yarn-catalog-v2';
+
+// При установке - ничего не кэшируем
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
+  console.log('Service Worker установлен');
+  self.skipWaiting();
 });
 
-// Fetch event
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      }
-    )
-  );
-});
-
-// Activate event
+// При активации - очищаем старые кэши
 self.addEventListener('activate', (event) => {
+  console.log('Service Worker активирован');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
+          console.log('Удаляю старый кэш:', cacheName);
+          return caches.delete(cacheName);
         })
       );
     })
   );
+  self.clients.claim();
+});
+
+// При запросе - просто пропускаем, без кэширования
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
 });
