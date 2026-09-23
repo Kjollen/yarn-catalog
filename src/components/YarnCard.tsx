@@ -1,15 +1,62 @@
-import React, { useState } from 'react';
-import { YarnItem } from '../types';
+import React, { useState, useMemo } from 'react';
+import { YarnItem, Project } from '../types';
 
 interface YarnCardProps {
   item: YarnItem;
+  projects: Project[];
   onEdit: (item: YarnItem) => void;
   onDelete: (id: string) => void;
+  onAddProject: (yarnItemId: string) => void;
+  onViewProjects: (yarnItemId: string) => void;
 }
 
-const YarnCard: React.FC<YarnCardProps> = ({ item, onEdit, onDelete }) => {
+// Вычисляет общий метраж на основе веса и метража на 100г
+function calculateTotalMeterage(totalWeight: string, meteragePer100g: string): string | null {
+  const weightNum = parseFloat(totalWeight.replace(/[^\d.]/g, ''));
+  const meterageNum = parseFloat(meteragePer100g.replace(/[^\d.]/g, ''));
+  if (!isNaN(weightNum) && !isNaN(meterageNum) && weightNum > 0) {
+    const total = Math.round((weightNum / 100) * meterageNum);
+    return `${total} м`;
+  }
+  return null;
+}
+
+// Вычисляет остаток пряжи (общий вес минус использованный в проектах)
+function calculateRemainingWeight(item: YarnItem, projects: Project[]): number | null {
+  const totalWeightNum = parseFloat(item.totalWeight.replace(/[^\d.]/g, ''));
+  if (isNaN(totalWeightNum) || totalWeightNum <= 0) return null;
+
+  const itemProjects = projects.filter(p => p.yarnItemId === item.id);
+  let usedWeight = 0;
+
+  itemProjects.forEach(project => {
+    const weightNum = parseFloat(project.yarnUsedWeight.replace(/[^\d.]/g, ''));
+    if (!isNaN(weightNum)) {
+      usedWeight += weightNum;
+    }
+  });
+
+  return totalWeightNum * item.quantity - usedWeight;
+}
+
+const YarnCard: React.FC<YarnCardProps> = ({ item, projects, onEdit, onDelete, onAddProject, onViewProjects }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const totalMeterage = useMemo(
+    () => calculateTotalMeterage(item.totalWeight, item.meteragePer100g),
+    [item.totalWeight, item.meteragePer100g]
+  );
+
+  const remainingWeight = useMemo(
+    () => calculateRemainingWeight(item, projects),
+    [item, projects]
+  );
+
+  const itemProjects = useMemo(
+    () => projects.filter(p => p.yarnItemId === item.id),
+    [projects, item.id]
+  );
 
   return (
     <>
@@ -47,16 +94,17 @@ const YarnCard: React.FC<YarnCardProps> = ({ item, onEdit, onDelete }) => {
         {/* Info */}
         <div className="p-4">
           <h3 className="font-bold text-gray-800 text-lg truncate">{item.name}</h3>
-          <div className="flex items-center gap-2 flex-wrap">
-            {item.brand && (
-              <p className="text-sm text-purple-600 font-medium">{item.brand}</p>
-            )}
-            {item.article && (
-              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                арт. {item.article}
-              </span>
-            )}
-          </div>
+          {item.brand && (
+            <p className="text-sm text-purple-600 font-medium">{item.brand}</p>
+          )}
+
+          {/* Article - prominent */}
+          {item.article && (
+            <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-sm font-medium">
+              <i className="fas fa-barcode text-xs text-gray-500"></i>
+              арт. {item.article}
+            </div>
+          )}
 
           <div className="mt-3 space-y-1">
             {item.composition && (
@@ -65,22 +113,53 @@ const YarnCard: React.FC<YarnCardProps> = ({ item, onEdit, onDelete }) => {
                 {item.composition}
               </p>
             )}
-            {item.weight && (
+            {item.totalWeight && (
               <p className="text-sm text-gray-600 flex items-center gap-2">
                 <i className="fas fa-weight-hanging text-xs text-purple-400 w-4"></i>
-                {item.weight}
+                {item.totalWeight}
+                {remainingWeight !== null && (
+                  <span className={`ml-auto text-xs font-medium ${remainingWeight <= 0 ? 'text-red-500' : 'text-green-600'}`}>
+                    остаток: {Math.round(remainingWeight)} г
+                  </span>
+                )}
               </p>
             )}
-            {item.length && (
+            {item.meteragePer100g && (
               <p className="text-sm text-gray-600 flex items-center gap-2">
-                <i className="fas fa-ruler text-xs text-purple-400 w-4"></i>
-                {item.length}
+                <i className="fas fa-ruler-horizontal text-xs text-purple-400 w-4"></i>
+                {item.meteragePer100g} / 100 г
               </p>
             )}
           </div>
 
+          {/* Projects section */}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-500 font-medium">
+                <i className="fas fa-tshirt mr-1"></i>
+                Проекты: {itemProjects.length}
+              </span>
+              <button
+                onClick={() => onAddProject(item.id)}
+                className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1"
+              >
+                <i className="fas fa-plus"></i>
+                Добавить
+              </button>
+            </div>
+            {itemProjects.length > 0 && (
+              <button
+                onClick={() => onViewProjects(item.id)}
+                className="w-full text-xs py-1.5 px-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors text-left"
+              >
+                <i className="fas fa-eye mr-1"></i>
+                Посмотреть проекты
+              </button>
+            )}
+          </div>
+
           {/* Actions */}
-          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+          <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
             <button
               onClick={() => setShowDetails(true)}
               className="flex-1 text-sm py-2 px-3 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors font-medium"
@@ -138,18 +217,15 @@ const YarnCard: React.FC<YarnCardProps> = ({ item, onEdit, onDelete }) => {
                 </button>
               </div>
 
+              {/* Article badge */}
+              {item.article && (
+                <div className="mt-3 inline-flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+                  <i className="fas fa-barcode text-gray-500"></i>
+                  Артикул: {item.article}
+                </div>
+              )}
+
               <div className="mt-5 space-y-3">
-                {item.article && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-barcode text-purple-600 text-sm"></i>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Артикул</p>
-                      <p className="text-gray-800 font-medium">{item.article}</p>
-                    </div>
-                  </div>
-                )}
                 {item.composition && (
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -173,105 +249,111 @@ const YarnCard: React.FC<YarnCardProps> = ({ item, onEdit, onDelete }) => {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-3 gap-3">
-                  {item.weight && (
-                    <div className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-500">Вес</p>
-                      <p className="font-medium text-gray-800">{item.weight}</p>
+
+                {/* Weight and meterage block */}
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  {item.totalWeight && (
+                    <div className="bg-purple-50 rounded-xl p-4 text-center border border-purple-100">
+                      <p className="text-xs text-purple-500 mb-1">Вес бобины</p>
+                      <p className="text-xl font-bold text-purple-800">{item.totalWeight}</p>
                     </div>
                   )}
-                  {item.length && (
-                    <div className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-500">Длина</p>
-                      <p className="font-medium text-gray-800">{item.length}</p>
+                  {item.meteragePer100g && (
+                    <div className="bg-pink-50 rounded-xl p-4 text-center border border-pink-100">
+                      <p className="text-xs text-pink-500 mb-1">Метраж на 100 г</p>
+                      <p className="text-xl font-bold text-pink-800">{item.meteragePer100g}</p>
                     </div>
                   )}
+                </div>
+
+                {totalMeterage && (
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 text-center border border-purple-100">
+                    <p className="text-xs text-gray-500 mb-1">Общий метраж бобины</p>
+                    <p className="text-2xl font-bold text-gray-800">{totalMeterage}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
                   {item.needleSize && (
                     <div className="bg-gray-50 rounded-lg p-3 text-center">
                       <p className="text-xs text-gray-500">Спицы</p>
                       <p className="font-medium text-gray-800">{item.needleSize}</p>
                     </div>
                   )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <i className="fas fa-boxes text-purple-600 text-sm"></i>
-                  </div>
-                  <div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <p className="text-xs text-gray-500">Количество</p>
-                    <p className="text-gray-800">{item.quantity} мотк.{item.quantity > 4 ? '' : 'а'}</p>
+                    <p className="font-medium text-gray-800">{item.quantity} боб.</p>
                   </div>
                 </div>
-                {item.notes && (
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mt-0.5">
-                      <i className="fas fa-sticky-note text-purple-600 text-sm"></i>
+
+                {/* Remaining weight */}
+                {remainingWeight !== null && (
+                  <div className={`rounded-xl p-4 text-center border ${remainingWeight <= 0 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+                    <p className="text-xs text-gray-500 mb-1">Остаток пряжи</p>
+                    <p className={`text-2xl font-bold ${remainingWeight <= 0 ? 'text-red-800' : 'text-green-800'}`}>
+                      {Math.round(remainingWeight)} г
+                    </p>
+                    {remainingWeight <= 0 && (
+                      <p className="text-xs text-red-600 mt-1">Пряжа закончилась</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Purchase info */}
+                {(item.shop || item.orderNumber || item.pricePerGram || item.totalPrice) && (
+                  <div className="border-t pt-3 mt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className="fas fa-shopping-bag text-purple-500"></i>
+                      <p className="text-sm font-semibold text-gray-700">Информация о покупке</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Заметки</p>
-                      <p className="text-gray-800">{item.notes}</p>
+                    <div className="space-y-2">
+                      {item.shop && (
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i className="fas fa-store text-purple-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Магазин</p>
+                            <p className="text-gray-800">{item.shop}</p>
+                          </div>
+                        </div>
+                      )}
+                      {item.orderNumber && (
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i className="fas fa-receipt text-purple-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Номер заказа</p>
+                            <p className="text-gray-800">{item.orderNumber}</p>
+                          </div>
+                        </div>
+                      )}
+                      {item.pricePerGram && (
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i className="fas fa-coins text-purple-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Цена за грамм</p>
+                            <p className="text-gray-800">{item.pricePerGram}</p>
+                          </div>
+                        </div>
+                      )}
+                      {item.totalPrice && (
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i className="fas fa-ruble-sign text-purple-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Общая сумма</p>
+                            <p className="text-gray-800">{item.totalPrice}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
-              </div>
 
-              <div className="flex gap-2 mt-6 pt-4 border-t">
-                <button
-                  onClick={() => {
-                    setShowDetails(false);
-                    onEdit(item);
-                  }}
-                  className="flex-1 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
-                >
-                  Редактировать
-                </button>
-                <button
-                  onClick={() => setShowDetails(false)}
-                  className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                >
-                  Закрыть
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="fas fa-trash text-red-500 text-2xl"></i>
-              </div>
-              <h3 className="text-lg font-bold text-gray-800">Удалить пряжу?</h3>
-              <p className="text-gray-600 mt-2">
-                "{item.name}" будет удалена из каталога
-              </p>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => {
-                  onDelete(item.id);
-                  setShowDeleteConfirm(false);
-                }}
-                className="flex-1 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
-              >
-                Удалить
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-              >
-                Отмена
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
-export default YarnCard;
+                {item.notes && (
+                  <div className="flex items-start gap-3">
