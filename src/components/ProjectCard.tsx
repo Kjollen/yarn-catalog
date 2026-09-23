@@ -58,6 +58,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
                   {usage.weight && <span className="ml-auto text-xs text-gray-500">{usage.weight}</span>}
                 </p>
               ))
+            ) : (project as any).yarnItemId ? (
+              <p className="flex items-center gap-2">
+                <i className="fas fa-yarn-ball text-xs text-purple-400 w-4"></i>
+                <span className="truncate">{getYarnName((project as any).yarnItemId)}</span>
+                {(project as any).yarnUsedWeight && (
+                  <span className="ml-auto text-xs text-gray-500">{(project as any).yarnUsedWeight}</span>
+                )}
+              </p>
             ) : (
               <p className="text-gray-400 italic">Пряжа не указана</p>
             )}
@@ -91,8 +99,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
           </div>
         </div>
       </div>
-
-      {showDetails && (
+            {showDetails && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setShowDetails(false)}
@@ -124,8 +131,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
               <div className="mb-4">{getStatusBadge()}</div>
 
               <div className="space-y-3">
-                {/* Пряжа и расход */}
-                {project.yarnUsage && project.yarnUsage.length > 0 && (
+                {project.yarnUsage && project.yarnUsage.length > 0 ? (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <i className="fas fa-yarn-ball text-purple-500"></i>
@@ -147,7 +153,27 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
                       ))}
                     </div>
                   </div>
-                )}
+                ) : (project as any).yarnItemId ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className="fas fa-yarn-ball text-purple-500"></i>
+                      <p className="text-sm font-semibold text-gray-700">Пряжа</p>
+                    </div>
+                    <div className="space-y-2 pl-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <i className="fas fa-yarn-ball text-purple-600 text-sm"></i>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-gray-800">{getYarnName((project as any).yarnItemId)}</p>
+                          {(project as any).yarnUsedWeight && (
+                            <p className="text-xs text-gray-500">Расход: {(project as any).yarnUsedWeight}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 {project.needleSize && (
                   <div className="flex items-center gap-3">
@@ -220,8 +246,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
           </div>
         </div>
       )}
-
-      {showDeleteConfirm && (
+            {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
             <div className="text-center">
@@ -242,17 +267,4 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
                 Удалить
               </button>
               <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-              >
-                Отмена
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
-export default ProjectCard;
+                onClick
