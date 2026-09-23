@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output (Vercel builds it automatically)
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+.next/
+build/
+
+
++++ .gitignore (修改后)
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
