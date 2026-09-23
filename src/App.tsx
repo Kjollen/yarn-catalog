@@ -149,7 +149,9 @@ function App() {
   const handleDelete = async (id: string) => {
     try {
       setSyncStatus('syncing');
-      const relatedProjects = projects.filter(p => p.yarnItemId === id);
+      const relatedProjects = projects.filter(p =>
+        p.yarnUsage && Array.isArray(p.yarnUsage) && p.yarnUsage.some(u => u.yarnItemId === id)
+      );
       for (const project of relatedProjects) {
         await deleteDoc(doc(db, 'projects', project.id));
       }
@@ -166,7 +168,6 @@ function App() {
       setSyncStatus('syncing');
       const projectToAdd = {
         ...newProject,
-        yarnItemId: projectYarnId, // Используем projectYarnId вместо newProject.yarnItemId
         dateAdded: new Date().toISOString()
       };
       await addDoc(collection(db, 'projects'), projectToAdd);
@@ -232,17 +233,10 @@ function App() {
 
   const viewingProjects = useMemo(() => {
     if (!viewingProjectsYarnId) return [];
-    return projects.filter(p => p.yarnItemId === viewingProjectsYarnId);
+    return projects.filter(p =>
+      p.yarnUsage && Array.isArray(p.yarnUsage) && p.yarnUsage.some(u => u.yarnItemId === viewingProjectsYarnId)
+    );
   }, [viewingProjectsYarnId, projects]);
-
-  const projectFormYarnName = useMemo(() => {
-    if (editingProject) {
-      const yarn = items.find(item => item.id === editingProject.yarnItemId);
-      return yarn?.name || '';
-    }
-    const yarn = items.find(item => item.id === projectYarnId);
-    return yarn?.name || '';
-  }, [editingProject, projectYarnId, items]);
 
   if (loading) {
     return (
@@ -370,7 +364,8 @@ function App() {
           onSubmit={editingProject ? handleEditProject : handleAddProject}
           onCancel={() => { setShowProjectForm(false); setEditingProject(null); }}
           initialData={editingProject}
-          yarnItemName={projectFormYarnName}
+          yarnItems={items}
+          initialYarnId={projectYarnId}
         />
       )}
 
@@ -405,6 +400,7 @@ function App() {
                     <ProjectCard
                       key={project.id}
                       project={project}
+                      yarnItems={items}
                       onEdit={startEditProject}
                       onDelete={handleDeleteProject}
                     />
