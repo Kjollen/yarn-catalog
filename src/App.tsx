@@ -25,11 +25,12 @@ function App() {
   const [filterBrand, setFilterBrand] = useState('all');
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+  const [activeTab, setActiveTab] = useState<'yarn' | 'projects'>('yarn');
 
   useEffect(() => {
     setSyncStatus('syncing');
     const q = query(collection(db, 'yarn_items'), orderBy('dateAdded', 'desc'));
-    const unsubscribe = onSnapshot(q,
+    const unsubscribe = onSnapshot(q, 
       (snapshot) => {
         const yarnItems: YarnItem[] = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -50,14 +51,13 @@ function App() {
 
   useEffect(() => {
     const q = collection(db, 'projects');
-    const unsubscribe = onSnapshot(q,
+    const unsubscribe = onSnapshot(q, 
       (snapshot) => {
         const projectItems: Project[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<Project, 'id'>),
         }));
-        // Сортируем локально по дате добавления (новые первыми)
-        projectItems.sort((a, b) =>
+        projectItems.sort((a, b) => 
           new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
         );
         setProjects(projectItems);
@@ -117,8 +117,7 @@ function App() {
     });
     return total;
   }, [items]);
-
-  const handleAdd = async (newYarn: YarnFormData) => {
+    const handleAdd = async (newYarn: YarnFormData) => {
     try {
       setSyncStatus('syncing');
       const itemToAdd = { ...newYarn, dateAdded: new Date().toISOString() };
@@ -149,9 +148,12 @@ function App() {
   const handleDelete = async (id: string) => {
     try {
       setSyncStatus('syncing');
-      const relatedProjects = projects.filter(p =>
-        p.yarnUsage && Array.isArray(p.yarnUsage) && p.yarnUsage.some(u => u.yarnItemId === id)
-      );
+      const relatedProjects = projects.filter(p => {
+        if (p.yarnUsage && Array.isArray(p.yarnUsage)) {
+          return p.yarnUsage.some(u => u.yarnItemId === id);
+        }
+        return (p as any).yarnItemId === id;
+      });
       for (const project of relatedProjects) {
         await deleteDoc(doc(db, 'projects', project.id));
       }
@@ -166,9 +168,9 @@ function App() {
   const handleAddProject = async (newProject: ProjectFormData) => {
     try {
       setSyncStatus('syncing');
-      const projectToAdd = {
-        ...newProject,
-        dateAdded: new Date().toISOString()
+      const projectToAdd = { 
+        ...newProject, 
+        dateAdded: new Date().toISOString() 
       };
       await addDoc(collection(db, 'projects'), projectToAdd);
       setShowProjectForm(false);
@@ -233,12 +235,14 @@ function App() {
 
   const viewingProjects = useMemo(() => {
     if (!viewingProjectsYarnId) return [];
-    return projects.filter(p =>
-      p.yarnUsage && Array.isArray(p.yarnUsage) && p.yarnUsage.some(u => u.yarnItemId === viewingProjectsYarnId)
-    );
+    return projects.filter(p => {
+      if (p.yarnUsage && Array.isArray(p.yarnUsage)) {
+        return p.yarnUsage.some(u => u.yarnItemId === viewingProjectsYarnId);
+      }
+      return (p as any).yarnItemId === viewingProjectsYarnId;
+    });
   }, [viewingProjectsYarnId, projects]);
-
-  if (loading) {
+    if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex items-center justify-center">
         <div className="text-center">
@@ -255,7 +259,7 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
       <header className="bg-white/80 backdrop-blur-md border-b border-purple-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-xl">🧶</span>
@@ -265,20 +269,52 @@ function App() {
                 <p className="text-xs text-gray-500">
                   {items.length} наименований • {totalQuantity} бобин
                   {totalWeight > 0 && ` • ${totalWeight} г`}
-                  {projects.length > 0 && ` • ${projects.length} проектов`}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${syncStatus === 'synced' ? 'bg-green-500' : syncStatus === 'syncing' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`} title={syncStatus === 'synced' ? 'Синхронизировано' : syncStatus === 'syncing' ? 'Синхронизация...' : 'Ошибка'}></div>
               <button
-                onClick={() => { setEditingItem(null); setShowForm(true); }}
+                onClick={() => {
+                  if (activeTab === 'yarn') {
+                    setEditingItem(null);
+                    setShowForm(true);
+                  } else {
+                    setEditingProject(null);
+                    setProjectYarnId('');
+                    setShowProjectForm(true);
+                  }
+                }}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
                 <span className="hidden sm:inline">Добавить</span>
               </button>
             </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('yarn')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'yarn'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <i className="fas fa-yarn-ball mr-2"></i>
+              Пряжа ({items.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('projects')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'projects'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <i className="fas fa-tshirt mr-2"></i>
+              Проекты ({projects.length})
+            </button>
           </div>
         </div>
       </header>
@@ -316,38 +352,66 @@ function App() {
             <p className="text-red-700 text-sm">Ошибка синхронизации.</p>
           </div>
         )}
-        {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filteredItems.map((item) => (
-              <YarnCard
-                key={item.id}
-                item={item}
-                projects={projects}
-                onEdit={startEdit}
-                onDelete={handleDelete}
-                onAddProject={startAddProject}
-                onViewProjects={viewProjects}
-              />
-            ))}
-          </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-5xl">🧶</span>
+
+        {activeTab === 'yarn' ? (
+          filteredItems.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {filteredItems.map((item) => (
+                <YarnCard 
+                  key={item.id} 
+                  item={item} 
+                  projects={projects}
+                  onEdit={startEdit} 
+                  onDelete={handleDelete}
+                  onAddProject={startAddProject}
+                  onViewProjects={viewProjects}
+                />
+              ))}
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Каталог пуст</h2>
-            <p className="text-gray-600 mb-6">Добавьте свою первую пряжу</p>
-            <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg">
-              <i className="fas fa-plus mr-2"></i>Добавить пряжу
-            </button>
-          </div>
+          ) : items.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-5xl">🧶</span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Каталог пуст</h2>
+              <p className="text-gray-600 mb-6">Добавьте свою первую пряжу</p>
+              <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg">
+                <i className="fas fa-plus mr-2"></i>Добавить пряжу
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i className="fas fa-search text-gray-400 text-2xl"></i>
+              </div>
+              <h3 className="text-lg font-medium text-gray-600">Ничего не найдено</h3>
+            </div>
+          )
         ) : (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <i className="fas fa-search text-gray-400 text-2xl"></i>
+          projects.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {projects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  yarnItems={items}
+                  onEdit={startEditProject}
+                  onDelete={handleDeleteProject}
+                />
+              ))}
             </div>
-            <h3 className="text-lg font-medium text-gray-600">Ничего не найдено</h3>
-          </div>
+          ) : (
+            <div className="text-center py-20">
+              <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i className="fas fa-tshirt text-5xl text-purple-400"></i>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Проектов пока нет</h2>
+              <p className="text-gray-600 mb-6">Создайте свой первый проект</p>
+              <button onClick={() => { setEditingProject(null); setProjectYarnId(''); setShowProjectForm(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg">
+                <i className="fas fa-plus mr-2"></i>Создать проект
+              </button>
+            </div>
+          )
         )}
       </main>
 
