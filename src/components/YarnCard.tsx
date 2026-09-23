@@ -24,13 +24,18 @@ function calculateRemainingWeight(item: YarnItem, projects: Project[]): number |
   const totalWeightNum = parseFloat(item.totalWeight.replace(/[^\d.]/g, ''));
   if (isNaN(totalWeightNum) || totalWeightNum <= 0) return null;
   
-  const itemProjects = projects.filter(p => p.yarnItemId === item.id);
   let usedWeight = 0;
   
-  itemProjects.forEach(project => {
-    const weightNum = parseFloat(project.yarnUsedWeight.replace(/[^\d.]/g, ''));
-    if (!isNaN(weightNum)) {
-      usedWeight += weightNum;
+  projects.forEach(project => {
+    if (project.yarnUsage && Array.isArray(project.yarnUsage)) {
+      project.yarnUsage.forEach(usage => {
+        if (usage.yarnItemId === item.id) {
+          const weightNum = parseFloat(usage.weight.replace(/[^\d.]/g, ''));
+          if (!isNaN(weightNum)) {
+            usedWeight += weightNum;
+          }
+        }
+      });
     }
   });
   
@@ -52,9 +57,11 @@ const YarnCard: React.FC<YarnCardProps> = ({ item, projects, onEdit, onDelete, o
   );
 
   const itemProjects = useMemo(
-    () => projects.filter(p => p.yarnItemId === item.id),
-    [projects, item.id]
-  );
+  () => projects.filter(p => 
+    p.yarnUsage && Array.isArray(p.yarnUsage) && p.yarnUsage.some(u => u.yarnItemId === item.id)
+  ),
+  [projects, item.id]
+);
     return (
     <>
       <div className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group">
