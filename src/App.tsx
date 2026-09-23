@@ -2,35 +2,42 @@ import { useState, useEffect, useMemo } from 'react';
 import { YarnItem } from './types';
 import YarnCard from './components/YarnCard';
 import YarnForm from './components/YarnForm';
-
-const STORAGE_KEY = 'yarn-catalog';
-
-function loadYarnData(): YarnItem[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveYarnData(items: YarnItem[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
+import { db } from './firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 type SortOption = 'date' | 'name' | 'brand' | 'quantity';
 
 function App() {
-  const [items, setItems] = useState<YarnItem[]>(loadYarnData);
+  const [items, setItems] = useState<YarnItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<YarnItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [filterBrand, setFilterBrand] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
 
   useEffect(() => {
-    saveYarnData(items);
-  }, [items]);
+    setSyncStatus('syncing');
+    const q = query(collection(db, 'yarn_items'), orderBy('dateAdded', 'desc'));
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const yarnItems: YarnItem[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<YarnItem, 'id'>),
+        }));
+        setItems(yarnItems);
+        setSyncStatus('synced');
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Ошибка загрузки:', error);
+        setSyncStatus('error');
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   const brands = useMemo(() => {
     const brandSet = new Set(items.map((item) => item.brand).filter(Boolean));
@@ -39,7 +46,6 @@ function App() {
 
   const filteredItems = useMemo(() => {
     let result = [...items];
-
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -52,25 +58,18 @@ function App() {
           item.notes.toLowerCase().includes(query)
       );
     }
-
     if (filterBrand !== 'all') {
       result = result.filter((item) => item.brand === filterBrand);
     }
-
     result.sort((a, b) => {
       switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'brand':
-          return a.brand.localeCompare(b.brand);
-        case 'quantity':
-          return b.quantity - a.quantity;
-        case 'date':
-        default:
+        case 'name': return a.name.localeCompare(b.name);
+        case 'brand': return a.brand.localeCompare(b.brand);
+        case 'quantity': return b.quantity - a.quantity;
+        case 'date': default:
           return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
       }
     });
-
     return result;
   }, [items, searchQuery, sortBy, filterBrand]);
 
@@ -89,35 +88,63 @@ function App() {
     return total;
   }, [items]);
 
-  const handleAdd = (data: Omit<YarnItem, 'id' | 'dateAdded'>) => {
-    const newItem: YarnItem = {
-      ...data,
-      id: crypto.randomUUID(),
-      dateAdded: new Date().toISOString(),
-    };
-    setItems((prev) => [newItem, ...prev]);
-    setShowForm(false);
+  const handleAdd = async (data: Omit<YarnItem, 'id' | 'dateAdded'>) => {
+    try {
+      setSyncStatus('syncing');
+      const newItem = { ...data, dateAdded: new Date().toISOString() };
+      await addDoc(collection(db, 'yarn_items'), newItem);
+      setShowForm(false);
+    } catch (error) {
+      console.error('Ошибка добавления:', error);
+      setSyncStatus('error');
+      alert('Не удалось добавить запись.');
+    }
   };
 
-  const handleEdit = (data: Omit<YarnItem, 'id' | 'dateAdded'>) => {
+  const handleEdit = async (data: Omit<YarnItem, 'id' | 'dateAdded'>) => {
     if (!editingItem) return;
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === editingItem.id ? { ...item, ...data } : item
-      )
-    );
-    setEditingItem(null);
-    setShowForm(false);
+    try {
+      setSyncStatus('syncing');
+      const itemRef = doc(db, 'yarn_items', editingItem.id);
+      await updateDoc(itemRef, data);
+      setEditingItem(null);
+      setShowForm(false);
+    } catch (error) {
+      console.error('Ошибка редактирования:', error);
+      setSyncStatus('error');
+      alert('Не удалось сохранить.');
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      setSyncStatus('syncing');
+      const itemRef = doc(db, 'yarn_items', id);
+      await deleteDoc(itemRef);
+    } catch (error) {
+      console.error('Ошибка удаления:', error);
+      setSyncStatus('error');
+      alert('Не удалось удалить.');
+    }
   };
 
   const startEdit = (item: YarnItem) => {
     setEditingItem(item);
     setShowForm(true);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <span className="text-3xl">🧶</span>
+          </div>
+          <p className="text-gray-600">Загрузка каталога...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
@@ -136,16 +163,16 @@ function App() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => {
-                setEditingItem(null);
-                setShowForm(true);
-              }}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
-            >
-              <i className="fas fa-plus"></i>
-              <span className="hidden sm:inline">Добавить</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${syncStatus === 'synced' ? 'bg-green-500' : syncStatus === 'syncing' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`} title={syncStatus === 'synced' ? 'Синхронизировано' : syncStatus === 'syncing' ? 'Синхронизация...' : 'Ошибка'}></div>
+              <button
+                onClick={() => { setEditingItem(null); setShowForm(true); }}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+              >
+                <i className="fas fa-plus"></i>
+                <span className="hidden sm:inline">Добавить</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -154,43 +181,20 @@ function App() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск по названию, артикулу, составу..."
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm"
-            />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск по названию, артикулу, составу..." className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm" />
             {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 <i className="fas fa-times"></i>
               </button>
             )}
           </div>
-
           {brands.length > 0 && (
-            <select
-              value={filterBrand}
-              onChange={(e) => setFilterBrand(e.target.value)}
-              className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm text-gray-700"
-            >
+            <select value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm text-gray-700">
               <option value="all">Все производители</option>
-              {brands.map((brand) => (
-                <option key={brand} value={brand}>
-                  {brand}
-                </option>
-              ))}
+              {brands.map((brand) => (<option key={brand} value={brand}>{brand}</option>))}
             </select>
           )}
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm text-gray-700"
-          >
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm text-gray-700">
             <option value="date">Сначала новые</option>
             <option value="name">По названию</option>
             <option value="brand">По производителю</option>
@@ -200,15 +204,16 @@ function App() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 pb-8">
+        {syncStatus === 'error' && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+            <i className="fas fa-exclamation-triangle text-red-500"></i>
+            <p className="text-red-700 text-sm">Ошибка синхронизации. Проверьте подключение к интернету и настройки Firebase.</p>
+          </div>
+        )}
         {filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filteredItems.map((item) => (
-              <YarnCard
-                key={item.id}
-                item={item}
-                onEdit={startEdit}
-                onDelete={handleDelete}
-              />
+              <YarnCard key={item.id} item={item} onEdit={startEdit} onDelete={handleDelete} />
             ))}
           </div>
         ) : items.length === 0 ? (
@@ -217,18 +222,9 @@ function App() {
               <span className="text-5xl">🧶</span>
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Каталог пуст</h2>
-            <p className="text-gray-600 mb-6">
-              Добавьте свою первую пряжу в коллекцию
-            </p>
-            <button
-              onClick={() => {
-                setEditingItem(null);
-                setShowForm(true);
-              }}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
-            >
-              <i className="fas fa-plus mr-2"></i>
-              Добавить пряжу
+            <p className="text-gray-600 mb-6">Добавьте свою первую пряжу в коллекцию</p>
+            <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg">
+              <i className="fas fa-plus mr-2"></i>Добавить пряжу
             </button>
           </div>
         ) : (
@@ -237,9 +233,7 @@ function App() {
               <i className="fas fa-search text-gray-400 text-2xl"></i>
             </div>
             <h3 className="text-lg font-medium text-gray-600">Ничего не найдено</h3>
-            <p className="text-gray-500 mt-1">
-              Попробуйте изменить параметры поиска
-            </p>
+            <p className="text-gray-500 mt-1">Попробуйте изменить параметры поиска</p>
           </div>
         )}
       </main>
@@ -247,10 +241,7 @@ function App() {
       {showForm && (
         <YarnForm
           onSubmit={editingItem ? handleEdit : handleAdd}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingItem(null);
-          }}
+          onCancel={() => { setShowForm(false); setEditingItem(null); }}
           initialData={editingItem}
         />
       )}
