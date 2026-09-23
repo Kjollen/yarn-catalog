@@ -21,24 +21,6 @@ function calculateTotalMeterage(totalWeight: string, meteragePer100g: string): s
   return null;
 }
 
-// Вычисляет остаток пряжи (общий вес минус использованный в проектах)
-function calculateRemainingWeight(item: YarnItem, projects: Project[]): number | null {
-  const totalWeightNum = parseFloat(item.totalWeight.replace(/[^\d.]/g, ''));
-  if (isNaN(totalWeightNum) || totalWeightNum <= 0) return null;
-
-  const itemProjects = projects.filter(p => p.yarnItemId === item.id);
-  let usedWeight = 0;
-
-  itemProjects.forEach(project => {
-    const weightNum = parseFloat(project.yarnUsedWeight.replace(/[^\d.]/g, ''));
-    if (!isNaN(weightNum)) {
-      usedWeight += weightNum;
-    }
-  });
-
-  return totalWeightNum * item.quantity - usedWeight;
-}
-
 const YarnCard: React.FC<YarnCardProps> = ({ item, projects, onEdit, onDelete, onAddProject, onViewProjects }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -46,11 +28,6 @@ const YarnCard: React.FC<YarnCardProps> = ({ item, projects, onEdit, onDelete, o
   const totalMeterage = useMemo(
     () => calculateTotalMeterage(item.totalWeight, item.meteragePer100g),
     [item.totalWeight, item.meteragePer100g]
-  );
-
-  const remainingWeight = useMemo(
-    () => calculateRemainingWeight(item, projects),
-    [item, projects]
   );
 
   const itemProjects = useMemo(
@@ -117,11 +94,6 @@ const YarnCard: React.FC<YarnCardProps> = ({ item, projects, onEdit, onDelete, o
               <p className="text-sm text-gray-600 flex items-center gap-2">
                 <i className="fas fa-weight-hanging text-xs text-purple-400 w-4"></i>
                 {item.totalWeight}
-                {remainingWeight !== null && (
-                  <span className={`ml-auto text-xs font-medium ${remainingWeight <= 0 ? 'text-red-500' : 'text-green-600'}`}>
-                    остаток: {Math.round(remainingWeight)} г
-                  </span>
-                )}
               </p>
             )}
             {item.meteragePer100g && (
@@ -286,74 +258,76 @@ const YarnCard: React.FC<YarnCardProps> = ({ item, projects, onEdit, onDelete, o
                   </div>
                 </div>
 
-                {/* Remaining weight */}
-                {remainingWeight !== null && (
-                  <div className={`rounded-xl p-4 text-center border ${remainingWeight <= 0 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
-                    <p className="text-xs text-gray-500 mb-1">Остаток пряжи</p>
-                    <p className={`text-2xl font-bold ${remainingWeight <= 0 ? 'text-red-800' : 'text-green-800'}`}>
-                      {Math.round(remainingWeight)} г
-                    </p>
-                    {remainingWeight <= 0 && (
-                      <p className="text-xs text-red-600 mt-1">Пряжа закончилась</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Purchase info */}
-                {(item.shop || item.orderNumber || item.pricePerGram || item.totalPrice) && (
-                  <div className="border-t pt-3 mt-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <i className="fas fa-shopping-bag text-purple-500"></i>
-                      <p className="text-sm font-semibold text-gray-700">Информация о покупке</p>
-                    </div>
-                    <div className="space-y-2">
-                      {item.shop && (
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <i className="fas fa-store text-purple-600 text-sm"></i>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Магазин</p>
-                            <p className="text-gray-800">{item.shop}</p>
-                          </div>
-                        </div>
-                      )}
-                      {item.orderNumber && (
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <i className="fas fa-receipt text-purple-600 text-sm"></i>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Номер заказа</p>
-                            <p className="text-gray-800">{item.orderNumber}</p>
-                          </div>
-                        </div>
-                      )}
-                      {item.pricePerGram && (
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <i className="fas fa-coins text-purple-600 text-sm"></i>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Цена за грамм</p>
-                            <p className="text-gray-800">{item.pricePerGram}</p>
-                          </div>
-                        </div>
-                      )}
-                      {item.totalPrice && (
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <i className="fas fa-ruble-sign text-purple-600 text-sm"></i>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Общая сумма</p>
-                            <p className="text-gray-800">{item.totalPrice}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {item.notes && (
                   <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mt-0.5">
+                      <i className="fas fa-sticky-note text-purple-600 text-sm"></i>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Заметки</p>
+                      <p className="text-gray-800">{item.notes}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-6 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowDetails(false);
+                    onEdit(item);
+                  }}
+                  className="flex-1 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                >
+                  Редактировать
+                </button>
+                <button
+                  onClick={() => setShowDetails(false)}
+                  className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i className="fas fa-trash text-red-500 text-2xl"></i>
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">Удалить пряжу?</h3>
+              <p className="text-gray-600 mt-2">
+                "{item.name}" будет удалена из каталога
+              </p>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  onDelete(item.id);
+                  setShowDeleteConfirm(false);
+                }}
+                className="flex-1 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
+              >
+                Удалить
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default YarnCard;
