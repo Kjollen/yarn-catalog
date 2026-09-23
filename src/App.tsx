@@ -29,7 +29,7 @@ function App() {
   useEffect(() => {
     setSyncStatus('syncing');
     const q = query(collection(db, 'yarn_items'), orderBy('dateAdded', 'desc'));
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(q,
       (snapshot) => {
         const yarnItems: YarnItem[] = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -48,16 +48,16 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-   useEffect(() => {
+  useEffect(() => {
     const q = collection(db, 'projects');
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(q,
       (snapshot) => {
         const projectItems: Project[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<Project, 'id'>),
         }));
         // Сортируем локально по дате добавления (новые первыми)
-        projectItems.sort((a, b) => 
+        projectItems.sort((a, b) =>
           new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
         );
         setProjects(projectItems);
@@ -164,10 +164,10 @@ function App() {
   const handleAddProject = async (newProject: ProjectFormData) => {
     try {
       setSyncStatus('syncing');
-      const projectToAdd = { 
-        ...newProject, 
+      const projectToAdd = {
+        ...newProject,
         yarnItemId: projectYarnId, // Используем projectYarnId вместо newProject.yarnItemId
-        dateAdded: new Date().toISOString() 
+        dateAdded: new Date().toISOString()
       };
       await addDoc(collection(db, 'projects'), projectToAdd);
       setShowProjectForm(false);
@@ -325,11 +325,11 @@ function App() {
         {filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filteredItems.map((item) => (
-              <YarnCard 
-                key={item.id} 
-                item={item} 
+              <YarnCard
+                key={item.id}
+                item={item}
                 projects={projects}
-                onEdit={startEdit} 
+                onEdit={startEdit}
                 onDelete={handleDelete}
                 onAddProject={startAddProject}
                 onViewProjects={viewProjects}
