@@ -20,16 +20,69 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [photo, setPhoto] = useState(initialData?.photo || '');
   const [quantity, setQuantity] = useState(initialData?.quantity || 1);
+  const [pasteHint, setPasteHint] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      const base64 = await fileToBase64(file);
+      setPhoto(base64);
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          const base64 = await fileToBase64(blob);
+          setPhoto(base64);
+          setPasteHint('Фото вставлено из буфера ✓');
+          setTimeout(() => setPasteHint(''), 2000);
+          e.preventDefault();
+          return;
+        }
+      }
+    }
+  };
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        setPasteHint('Используйте долгое нажатие → Вставить в области фото, или Ctrl+V.');
+        setTimeout(() => setPasteHint(''), 3000);
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((type) => type.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const base64 = await fileToBase64(new File([blob], 'paste.png', { type: imageType }));
+          setPhoto(base64);
+          setPasteHint('Фото вставлено из буфера ✓');
+          setTimeout(() => setPasteHint(''), 2000);
+          return;
+        }
+      }
+      setPasteHint('В буфере нет изображения');
+      setTimeout(() => setPasteHint(''), 2000);
+    } catch (err) {
+      setPasteHint('Нет доступа к буферу. Разрешите доступ или используйте долгое нажатие → Вставить.');
+      setTimeout(() => setPasteHint(''), 3000);
     }
   };
 
@@ -60,11 +113,13 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
           </h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5" onPaste={handlePaste}>
           <div className="flex flex-col items-center">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-48 h-48 border-2 border-dashed border-purple-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-all overflow-hidden group"
+              onPaste={handlePaste}
+              tabIndex={0}
+              className="w-48 h-48 border-2 border-dashed border-purple-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-all overflow-hidden group outline-none focus:border-purple-500"
             >
               {photo ? (
                 <img src={photo} alt="Пряжа" className="w-full h-full object-cover" />
@@ -72,6 +127,7 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
                 <div className="text-center text-purple-400 group-hover:text-purple-600">
                   <i className="fas fa-camera text-4xl mb-2"></i>
                   <p className="text-sm">Добавить фото</p>
+                  <p className="text-xs mt-1 text-gray-400">или Ctrl+V /Cmd+V</p>
                 </div>
               )}
             </div>
@@ -82,94 +138,62 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
               onChange={handlePhotoChange}
               className="hidden"
             />
-            {photo && (
-              <button
-                type="button"
-                onClick={() => setPhoto('')}
-                className="mt-2 text-sm text-red-500 hover:text-red-700"
-              >
-                Удалить фото
-              </button>
+            <div className="flex gap-2 mt-2 flex-wrap justify-center">
+              {photo ? (
+                <button
+                  type="button"
+                  onClick={() => setPhoto('')}
+                  className="text-sm text-red-500 hover:text-red-700"
+                >
+                  <i className="fas fa-trash mr-1"></i>Удалить
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handlePasteFromClipboard}
+                  className="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1 bg-purple-50 px-3 py-1 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  <i className="fas fa-paste"></i>
+                  Вставить из буфера
+                </button>
+              )}
+            </div>
+            {pasteHint && (
+              <p className={`mt-2 text-xs ${pasteHint.includes('✓') ? 'text-green-600' : 'text-orange-600'}`}>
+                {pasteHint}
+              </p>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Название *
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                placeholder="Например: Alize Lana Gold"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Например: Alize Lana Gold" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Производитель
-              </label>
-              <input
-                type="text"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                placeholder="Например: Alize"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Производитель</label>
+              <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Например: Alize" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Артикул
-              </label>
-              <input
-                type="text"
-                value={article}
-                onChange={(e) => setArticle(e.target.value)}
-                placeholder="Например: 104"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Артикул</label>
+              <input type="text" value={article} onChange={(e) => setArticle(e.target.value)} placeholder="Например: 104" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Состав
-            </label>
-            <input
-              type="text"
-              value={composition}
-              onChange={(e) => setComposition(e.target.value)}
-              placeholder="Например: 49% шерсть, 51% акрил"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Состав</label>
+            <input type="text" value={composition} onChange={(e) => setComposition(e.target.value)} placeholder="Например: 49% шерсть, 51% акрил" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Цвет / оттенок
-              </label>
-              <input
-                type="text"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                placeholder="Например: бежевый меланж"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Цвет / оттенок</label>
+              <input type="text" value={color} onChange={(e) => setColor(e.target.value)} placeholder="Например: бежевый меланж" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Цвет (выбрать)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Цвет (выбрать)</label>
               <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={colorHex}
-                  onChange={(e) => setColorHex(e.target.value)}
-                  className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
-                />
+                <input type="color" value={colorHex} onChange={(e) => setColorHex(e.target.value)} className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer" />
                 <span className="text-sm text-gray-500">{colorHex}</span>
               </div>
             </div>
@@ -177,81 +201,34 @@ const YarnForm: React.FC<YarnFormProps> = ({ onSubmit, onCancel, initialData }) 
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Общий вес бобины
-              </label>
-              <input
-                type="text"
-                value={totalWeight}
-                onChange={(e) => setTotalWeight(e.target.value)}
-                placeholder="850 г"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Общий вес бобины</label>
+              <input type="text" value={totalWeight} onChange={(e) => setTotalWeight(e.target.value)} placeholder="850 г" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Метраж на 100 г
-              </label>
-              <input
-                type="text"
-                value={meteragePer100g}
-                onChange={(e) => setMeteragePer100g(e.target.value)}
-                placeholder="350 м"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Метраж на 100 г</label>
+              <input type="text" value={meteragePer100g} onChange={(e) => setMeteragePer100g(e.target.value)} placeholder="350 м" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Спицы
-              </label>
-              <input
-                type="text"
-                value={needleSize}
-                onChange={(e) => setNeedleSize(e.target.value)}
-                placeholder="4-5 мм"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Спицы</label>
+              <input type="text" value={needleSize} onChange={(e) => setNeedleSize(e.target.value)} placeholder="4-5 мм" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Количество бобин
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Количество бобин</label>
+            <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Заметки
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Для чего подходит, особенности вязания..."
-              rows={3}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Заметки</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Для чего подходит, особенности вязания..." rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none" />
           </div>
 
           <div className="flex gap-3 pt-4 border-t">
-            <button
-              type="submit"
-              className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors"
-            >
+            <button type="submit" className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors">
               {initialData ? 'Сохранить' : 'Добавить'}
             </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
+            <button type="button" onClick={onCancel} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors">
               Отмена
             </button>
           </div>
