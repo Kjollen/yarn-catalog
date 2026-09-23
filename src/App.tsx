@@ -88,7 +88,7 @@ function App() {
     return total;
   }, [items]);
 
-  const handleAdd = async ( Omit<YarnItem, 'id' | 'dateAdded'>) => {
+  const handleAdd = async (data: Omit<YarnItem, 'id' | 'dateAdded'>) => {
     try {
       setSyncStatus('syncing');
       const newItem = { ...data, dateAdded: new Date().toISOString() };
@@ -101,7 +101,7 @@ function App() {
     }
   };
 
-  const handleEdit = async ( Omit<YarnItem, 'id' | 'dateAdded'>) => {
+  const handleEdit = async (data: Omit<YarnItem, 'id' | 'dateAdded'>) => {
     if (!editingItem) return;
     try {
       setSyncStatus('syncing');
