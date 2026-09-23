@@ -164,7 +164,11 @@ function App() {
   const handleAddProject = async (newProject: ProjectFormData) => {
     try {
       setSyncStatus('syncing');
-      const projectToAdd = { ...newProject, dateAdded: new Date().toISOString() };
+      const projectToAdd = { 
+        ...newProject, 
+        yarnItemId: projectYarnId, // Используем projectYarnId вместо newProject.yarnItemId
+        dateAdded: new Date().toISOString() 
+      };
       await addDoc(collection(db, 'projects'), projectToAdd);
       setShowProjectForm(false);
       setEditingProject(null);
