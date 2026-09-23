@@ -1,16 +1,25 @@
 import { useState, useEffect, useMemo } from 'react';
-import { YarnItem } from './types';
+import { YarnItem, Project } from './types';
 import YarnCard from './components/YarnCard';
 import YarnForm from './components/YarnForm';
+import ProjectForm from './components/ProjectForm';
+import ProjectCard from './components/ProjectCard';
 import { db } from './firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 type SortOption = 'date' | 'name' | 'brand' | 'quantity';
+type YarnFormData = Omit<YarnItem, 'id' | 'dateAdded'>;
+type ProjectFormData = Omit<Project, 'id' | 'dateAdded'>;
 
 function App() {
   const [items, setItems] = useState<YarnItem[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<YarnItem | null>(null);
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [projectYarnId, setProjectYarnId] = useState<string>('');
+  const [viewingProjectsYarnId, setViewingProjectsYarnId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [filterBrand, setFilterBrand] = useState('all');
@@ -31,9 +40,26 @@ function App() {
         setLoading(false);
       },
       (error) => {
-        console.error('Ошибка загрузки:', error);
+        console.error('Ошибка загрузки пряжи:', error);
         setSyncStatus('error');
         setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'projects'), orderBy('dateAdded', 'desc'));
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const projectItems: Project[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<Project, 'id'>),
+        }));
+        setProjects(projectItems);
+      },
+      (error) => {
+        console.error('Ошибка загрузки проектов:', error);
       }
     );
     return () => unsubscribe();
@@ -88,11 +114,11 @@ function App() {
     return total;
   }, [items]);
 
-  const handleAdd = async (data: Omit<YarnItem, 'id' | 'dateAdded'>) => {
+  const handleAdd = async (newYarn: YarnFormData) => {
     try {
       setSyncStatus('syncing');
-      const newItem = { ...data, dateAdded: new Date().toISOString() };
-      await addDoc(collection(db, 'yarn_items'), newItem);
+      const itemToAdd = { ...newYarn, dateAdded: new Date().toISOString() };
+      await addDoc(collection(db, 'yarn_items'), itemToAdd);
       setShowForm(false);
     } catch (error) {
       console.error('Ошибка добавления:', error);
@@ -101,12 +127,12 @@ function App() {
     }
   };
 
-  const handleEdit = async (data: Omit<YarnItem, 'id' | 'dateAdded'>) => {
+  const handleEdit = async (updatedYarn: YarnFormData) => {
     if (!editingItem) return;
     try {
       setSyncStatus('syncing');
       const itemRef = doc(db, 'yarn_items', editingItem.id);
-      await updateDoc(itemRef, data);
+      await updateDoc(itemRef, updatedYarn);
       setEditingItem(null);
       setShowForm(false);
     } catch (error) {
@@ -119,8 +145,11 @@ function App() {
   const handleDelete = async (id: string) => {
     try {
       setSyncStatus('syncing');
-      const itemRef = doc(db, 'yarn_items', id);
-      await deleteDoc(itemRef);
+      const relatedProjects = projects.filter(p => p.yarnItemId === id);
+      for (const project of relatedProjects) {
+        await deleteDoc(doc(db, 'projects', project.id));
+      }
+      await deleteDoc(doc(db, 'yarn_items', id));
     } catch (error) {
       console.error('Ошибка удаления:', error);
       setSyncStatus('error');
@@ -128,10 +157,84 @@ function App() {
     }
   };
 
+  const handleAddProject = async (newProject: ProjectFormData) => {
+    try {
+      setSyncStatus('syncing');
+      const projectToAdd = { ...newProject, dateAdded: new Date().toISOString() };
+      await addDoc(collection(db, 'projects'), projectToAdd);
+      setShowProjectForm(false);
+      setEditingProject(null);
+    } catch (error) {
+      console.error('Ошибка добавления проекта:', error);
+      setSyncStatus('error');
+      alert('Не удалось добавить проект.');
+    }
+  };
+
+  const handleEditProject = async (updatedProject: ProjectFormData) => {
+    if (!editingProject) return;
+    try {
+      setSyncStatus('syncing');
+      const projectRef = doc(db, 'projects', editingProject.id);
+      await updateDoc(projectRef, updatedProject);
+      setEditingProject(null);
+      setShowProjectForm(false);
+    } catch (error) {
+      console.error('Ошибка редактирования проекта:', error);
+      setSyncStatus('error');
+      alert('Не удалось сохранить проект.');
+    }
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    try {
+      setSyncStatus('syncing');
+      await deleteDoc(doc(db, 'projects', id));
+    } catch (error) {
+      console.error('Ошибка удаления проекта:', error);
+      setSyncStatus('error');
+      alert('Не удалось удалить проект.');
+    }
+  };
+
   const startEdit = (item: YarnItem) => {
     setEditingItem(item);
     setShowForm(true);
   };
+
+  const startAddProject = (yarnItemId: string) => {
+    setProjectYarnId(yarnItemId);
+    setEditingProject(null);
+    setShowProjectForm(true);
+  };
+
+  const startEditProject = (project: Project) => {
+    setEditingProject(project);
+    setShowProjectForm(true);
+  };
+
+  const viewProjects = (yarnItemId: string) => {
+    setViewingProjectsYarnId(yarnItemId);
+  };
+
+  const viewingYarnItem = useMemo(() => {
+    if (!viewingProjectsYarnId) return null;
+    return items.find(item => item.id === viewingProjectsYarnId) || null;
+  }, [viewingProjectsYarnId, items]);
+
+  const viewingProjects = useMemo(() => {
+    if (!viewingProjectsYarnId) return [];
+    return projects.filter(p => p.yarnItemId === viewingProjectsYarnId);
+  }, [viewingProjectsYarnId, projects]);
+
+  const projectFormYarnName = useMemo(() => {
+    if (editingProject) {
+      const yarn = items.find(item => item.id === editingProject.yarnItemId);
+      return yarn?.name || '';
+    }
+    const yarn = items.find(item => item.id === projectYarnId);
+    return yarn?.name || '';
+  }, [editingProject, projectYarnId, items]);
 
   if (loading) {
     return (
@@ -160,6 +263,7 @@ function App() {
                 <p className="text-xs text-gray-500">
                   {items.length} наименований • {totalQuantity} бобин
                   {totalWeight > 0 && ` • ${totalWeight} г`}
+                  {projects.length > 0 && ` • ${projects.length} проектов`}
                 </p>
               </div>
             </div>
@@ -207,13 +311,21 @@ function App() {
         {syncStatus === 'error' && (
           <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
             <i className="fas fa-exclamation-triangle text-red-500"></i>
-            <p className="text-red-700 text-sm">Ошибка синхронизации. Проверьте подключение к интернету и настройки Firebase.</p>
+            <p className="text-red-700 text-sm">Ошибка синхронизации.</p>
           </div>
         )}
         {filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filteredItems.map((item) => (
-              <YarnCard key={item.id} item={item} onEdit={startEdit} onDelete={handleDelete} />
+              <YarnCard 
+                key={item.id} 
+                item={item} 
+                projects={projects}
+                onEdit={startEdit} 
+                onDelete={handleDelete}
+                onAddProject={startAddProject}
+                onViewProjects={viewProjects}
+              />
             ))}
           </div>
         ) : items.length === 0 ? (
@@ -222,7 +334,7 @@ function App() {
               <span className="text-5xl">🧶</span>
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Каталог пуст</h2>
-            <p className="text-gray-600 mb-6">Добавьте свою первую пряжу в коллекцию</p>
+            <p className="text-gray-600 mb-6">Добавьте свою первую пряжу</p>
             <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg">
               <i className="fas fa-plus mr-2"></i>Добавить пряжу
             </button>
@@ -233,7 +345,6 @@ function App() {
               <i className="fas fa-search text-gray-400 text-2xl"></i>
             </div>
             <h3 className="text-lg font-medium text-gray-600">Ничего не найдено</h3>
-            <p className="text-gray-500 mt-1">Попробуйте изменить параметры поиска</p>
           </div>
         )}
       </main>
@@ -244,6 +355,70 @@ function App() {
           onCancel={() => { setShowForm(false); setEditingItem(null); }}
           initialData={editingItem}
         />
+      )}
+
+      {showProjectForm && (
+        <ProjectForm
+          onSubmit={editingProject ? handleEditProject : handleAddProject}
+          onCancel={() => { setShowProjectForm(false); setEditingProject(null); }}
+          initialData={editingProject}
+          yarnItemName={projectFormYarnName}
+        />
+      )}
+
+      {viewingProjectsYarnId && viewingYarnItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Проекты из пряжи</h2>
+                <p className="text-sm text-purple-600 mt-1">{viewingYarnItem.name}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => startAddProject(viewingProjectsYarnId)}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center gap-2"
+                >
+                  <i className="fas fa-plus"></i>
+                  <span className="hidden sm:inline">Новый</span>
+                </button>
+                <button
+                  onClick={() => setViewingProjectsYarnId(null)}
+                  className="text-gray-400 hover:text-gray-600 text-xl p-2"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              {viewingProjects.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {viewingProjects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      onEdit={startEditProject}
+                      onDelete={handleDeleteProject}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i className="fas fa-tshirt text-purple-400 text-2xl"></i>
+                  </div>
+                  <p className="text-gray-600 mb-4">Пока нет проектов</p>
+                  <button
+                    onClick={() => startAddProject(viewingProjectsYarnId)}
+                    className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-purple-700 transition-colors"
+                  >
+                    <i className="fas fa-plus mr-2"></i>Создать проект
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
