@@ -1,20 +1,17 @@
 import React, { useState, useRef } from 'react';
-import { Project, YarnItem, YarnUsage } from '../types';
+import { Project } from '../types';
 
 interface ProjectFormProps {
   onSubmit: (project: Omit<Project, 'id' | 'dateAdded'>) => void;
   onCancel: () => void;
   initialData?: Project | null;
-  yarnItems: YarnItem[];
-  initialYarnId?: string;
+  yarnItemName: string;
 }
 
-const ProjectForm: React.FC<ProjectFormProps> = ({ onSubmit, onCancel, initialData, yarnItems, initialYarnId }) => {
+const ProjectForm: React.FC<ProjectFormProps> = ({ onSubmit, onCancel, initialData, yarnItemName }) => {
   const [name, setName] = useState(initialData?.name || '');
   const [photo, setPhoto] = useState(initialData?.photo || '');
-  const [yarnUsage, setYarnUsage] = useState<YarnUsage[]>(
-    initialData?.yarnUsage || (initialYarnId ? [{ yarnItemId: initialYarnId, weight: '' }] : [])
-  );
+  const [yarnUsedWeight, setYarnUsedWeight] = useState(initialData?.yarnUsedWeight || '');
   const [needleSize, setNeedleSize] = useState(initialData?.needleSize || '');
   const [pattern, setPattern] = useState(initialData?.pattern || '');
   const [notes, setNotes] = useState(initialData?.notes || '');
@@ -87,26 +84,13 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSubmit, onCancel, initialDa
     }
   };
 
-  const addYarnUsage = () => {
-    setYarnUsage([...yarnUsage, { yarnItemId: '', weight: '' }]);
-  };
-
-  const removeYarnUsage = (index: number) => {
-    setYarnUsage(yarnUsage.filter((_, i) => i !== index));
-  };
-
-  const updateYarnUsage = (index: number, field: keyof YarnUsage, value: string) => {
-    const updated = [...yarnUsage];
-    updated[index] = { ...updated[index], [field]: value };
-    setYarnUsage(updated);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      yarnUsage,
+      yarnItemId: initialData?.yarnItemId || '',
       name,
       photo,
+      yarnUsedWeight,
       needleSize,
       pattern,
       notes,
@@ -123,6 +107,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSubmit, onCancel, initialDa
           <h2 className="text-2xl font-bold text-gray-800">
             {initialData ? 'Редактировать проект' : 'Новый проект'}
           </h2>
+          <p className="text-sm text-gray-500 mt-1">Пряжа: {yarnItemName}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5" onPaste={handlePaste}>
@@ -206,69 +191,19 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSubmit, onCancel, initialDa
             </select>
           </div>
 
-          <div className="border-t pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-700">
-                <i className="fas fa-yarn-ball mr-2 text-purple-500"></i>
-                Пряжа и расход
-              </h3>
-              <button
-                type="button"
-                onClick={addYarnUsage}
-                className="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
-              >
-                <i className="fas fa-plus"></i>
-                Добавить пряжу
-              </button>
-            </div>
-
-            {yarnUsage.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">
-                Нажмите "Добавить пряжу", чтобы указать используемую пряжу
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {yarnUsage.map((usage, index) => (
-                  <div key={index} className="flex gap-2 items-start bg-gray-50 p-3 rounded-lg">
-                    <div className="flex-1">
-                      <label className="block text-xs text-gray-600 mb-1">Пряжа</label>
-                      <select
-                        value={usage.yarnItemId}
-                        onChange={(e) => updateYarnUsage(index, 'yarnItemId', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm"
-                      >
-                        <option value="">Выберите пряжу</option>
-                        {yarnItems.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name} {item.brand ? `(${item.brand})` : ''} {item.color ? `- ${item.color}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="w-32">
-                      <label className="block text-xs text-gray-600 mb-1">Расход</label>
-                      <input
-                        type="text"
-                        value={usage.weight}
-                        onChange={(e) => updateYarnUsage(index, 'weight', e.target.value)}
-                        placeholder="350 г"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeYarnUsage(index)}
-                      className="mt-6 text-red-500 hover:text-red-700"
-                    >
-                      <i className="fas fa-trash"></i>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Расход пряжи
+              </label>
+              <input
+                type="text"
+                value={yarnUsedWeight}
+                onChange={(e) => setYarnUsedWeight(e.target.value)}
+                placeholder="450 г"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Спицы
@@ -281,18 +216,19 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ onSubmit, onCancel, initialDa
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Схема / описание
-              </label>
-              <input
-                type="text"
-                value={pattern}
-                onChange={(e) => setPattern(e.target.value)}
-                placeholder="Ссылка или название схемы"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-              />
-            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Схема / описание
+            </label>
+            <input
+              type="text"
+              value={pattern}
+              onChange={(e) => setPattern(e.target.value)}
+              placeholder="Ссылка или название схемы"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
