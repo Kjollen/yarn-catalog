@@ -99,7 +99,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
           </div>
         </div>
       </div>
-            {showDetails && (
+
+      {showDetails && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setShowDetails(false)}
@@ -246,7 +247,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
           </div>
         </div>
       )}
-            {showDeleteConfirm && (
+
+      {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
             <div className="text-center">
@@ -267,4 +269,17 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, yarnItems, onEdit, o
                 Удалить
               </button>
               <button
-                onClick
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default ProjectCard;
