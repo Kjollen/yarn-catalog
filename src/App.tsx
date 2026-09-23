@@ -48,14 +48,18 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const q = query(collection(db, 'projects'), orderBy('dateAdded', 'desc'));
+   useEffect(() => {
+    const q = collection(db, 'projects');
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
         const projectItems: Project[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<Project, 'id'>),
         }));
+        // Сортируем локально по дате добавления (новые первыми)
+        projectItems.sort((a, b) => 
+          new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
+        );
         setProjects(projectItems);
       },
       (error) => {
