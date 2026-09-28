@@ -6,34 +6,58 @@ export interface YarnItem {
   composition: string;
   color: string;
   colorHex: string;
-  totalWeight: string; // общий вес бобины, например "850 г"
-  meteragePer100g: string; // метраж на 100 г, например "350 м"
-  needleSize: string; // рекомендуемый размер спиц
+  totalWeight: string;
+  meteragePer100g: string;
+  needleSize: string;
   notes: string;
-  photo: string; // base64
-  quantity: number; // количество бобин
-  shop: string; // где куплена
-  orderNumber: string; // номер заказа
-  pricePerGram: string; // цена за грамм
-  totalPrice: string; // общая сумма покупки
+  photo: string;
+  quantity: number;
+  shop: string;
+  orderNumber: string;
+  pricePerGram: string;
+  totalPrice: string;
   dateAdded: string;
 }
 
 export interface YarnUsage {
   yarnItemId: string;
-  weight: string; // расход этой пряжи, например "350 г"
+  weight: string;
 }
 
 export interface Project {
   id: string;
-  yarnUsage: YarnUsage[]; // массив: несколько видов пряжи с各自的 расходом
-  name: string; // название изделия (например, "Кардиган для мамы")
-  photo: string; // фото готового изделия
-  needleSize: string; // какими спицами вязался
-  pattern: string; // описание/ссылка на схему
-  notes: string; // заметки
-  startDate: string; // когда начали
-  endDate: string; // когда закончили (если закончили)
-  status: 'in-progress' | 'completed' | 'planned'; // статус
+  yarnUsage: YarnUsage[];
+  name: string;
+  photo: string;
+  needleSize: string;
+  pattern: string;
+  notes: string;
+  startDate: string;
+  endDate: string;
+  status: 'in-progress' | 'completed' | 'planned';
+  dateAdded: string;
+}
+
+export interface SampleMeasurements {
+  width: string;
+  height: string;
+  stitches: string;
+  rows: string;
+}
+
+export interface Sample {
+  id: string;
+  yarnUsage: YarnUsage[];
+  needleSize: string;
+  sampleWeight: string;
+  beforeWetBlocking: {
+    photo: string;
+    measurements: SampleMeasurements;
+  };
+  afterWetBlocking: {
+    photo: string;
+    measurements: SampleMeasurements;
+  };
+  notes: string;
   dateAdded: string;
 }
