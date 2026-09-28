@@ -1,36 +1,42 @@
 import { useState, useEffect, useMemo } from 'react';
-import { YarnItem, Project } from './types';
+import { YarnItem, Project, Sample } from './types';
 import YarnCard from './components/YarnCard';
 import YarnForm from './components/YarnForm';
 import ProjectForm from './components/ProjectForm';
 import ProjectCard from './components/ProjectCard';
+import SampleForm from './components/SampleForm';
+import SampleCard from './components/SampleCard';
 import { db } from './firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 type SortOption = 'date' | 'name' | 'brand' | 'quantity';
 type YarnFormData = Omit<YarnItem, 'id' | 'dateAdded'>;
 type ProjectFormData = Omit<Project, 'id' | 'dateAdded'>;
+type SampleFormData = Omit<Sample, 'id' | 'dateAdded'>;
 
 function App() {
   const [items, setItems] = useState<YarnItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [samples, setSamples] = useState<Sample[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<YarnItem | null>(null);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [projectYarnId, setProjectYarnId] = useState<string>('');
   const [viewingProjectsYarnId, setViewingProjectsYarnId] = useState<string | null>(null);
+  const [showSampleForm, setShowSampleForm] = useState(false);
+  const [editingSample, setEditingSample] = useState<Sample | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [filterBrand, setFilterBrand] = useState('all');
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
-  const [activeTab, setActiveTab] = useState<'yarn' | 'projects'>('yarn');
+  const [activeTab, setActiveTab] = useState<'yarn' | 'projects' | 'samples'>('yarn');
 
   useEffect(() => {
     setSyncStatus('syncing');
     const q = query(collection(db, 'yarn_items'), orderBy('dateAdded', 'desc'));
-    const unsubscribe = onSnapshot(q,
+    const unsubscribe = onSnapshot(q, 
       (snapshot) => {
         const yarnItems: YarnItem[] = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -51,20 +57,39 @@ function App() {
 
   useEffect(() => {
     const q = collection(db, 'projects');
-    const unsubscribe = onSnapshot(q,
+    const unsubscribe = onSnapshot(q, 
       (snapshot) => {
         const projectItems: Project[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<Project, 'id'>),
         }));
-        // Сортируем локально по дате добавления (новые первыми)
-        projectItems.sort((a, b) =>
+        projectItems.sort((a, b) => 
           new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
         );
         setProjects(projectItems);
       },
       (error) => {
         console.error('Ошибка загрузки проектов:', error);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = collection(db, 'samples');
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const sampleItems: Sample[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<Sample, 'id'>),
+        }));
+        sampleItems.sort((a, b) => 
+          new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
+        );
+        setSamples(sampleItems);
+      },
+      (error) => {
+        console.error('Ошибка загрузки образцов:', error);
       }
     );
     return () => unsubscribe();
@@ -118,8 +143,7 @@ function App() {
     });
     return total;
   }, [items]);
-
-  const handleAdd = async (newYarn: YarnFormData) => {
+    const handleAdd = async (newYarn: YarnFormData) => {
     try {
       setSyncStatus('syncing');
       const itemToAdd = { ...newYarn, dateAdded: new Date().toISOString() };
@@ -151,11 +175,9 @@ function App() {
     try {
       setSyncStatus('syncing');
       const relatedProjects = projects.filter(p => {
-        // Новая структура
         if (p.yarnUsage && Array.isArray(p.yarnUsage)) {
           return p.yarnUsage.some(u => u.yarnItemId === id);
         }
-        // Старая структура
         return (p as any).yarnItemId === id;
       });
       for (const project of relatedProjects) {
@@ -172,9 +194,9 @@ function App() {
   const handleAddProject = async (newProject: ProjectFormData) => {
     try {
       setSyncStatus('syncing');
-      const projectToAdd = {
-        ...newProject,
-        dateAdded: new Date().toISOString()
+      const projectToAdd = { 
+        ...newProject, 
+        dateAdded: new Date().toISOString() 
       };
       await addDoc(collection(db, 'projects'), projectToAdd);
       setShowProjectForm(false);
@@ -212,6 +234,49 @@ function App() {
     }
   };
 
+  const handleAddSample = async (newSample: SampleFormData) => {
+    try {
+      setSyncStatus('syncing');
+      const sampleToAdd = { 
+        ...newSample, 
+        dateAdded: new Date().toISOString() 
+      };
+      await addDoc(collection(db, 'samples'), sampleToAdd);
+      setShowSampleForm(false);
+      setEditingSample(null);
+    } catch (error) {
+      console.error('Ошибка добавления образца:', error);
+      setSyncStatus('error');
+      alert('Не удалось добавить образец.');
+    }
+  };
+
+  const handleEditSample = async (updatedSample: SampleFormData) => {
+    if (!editingSample) return;
+    try {
+      setSyncStatus('syncing');
+      const sampleRef = doc(db, 'samples', editingSample.id);
+      await updateDoc(sampleRef, updatedSample);
+      setEditingSample(null);
+      setShowSampleForm(false);
+    } catch (error) {
+      console.error('Ошибка редактирования образца:', error);
+      setSyncStatus('error');
+      alert('Не удалось сохранить образец.');
+    }
+  };
+
+  const handleDeleteSample = async (id: string) => {
+    try {
+      setSyncStatus('syncing');
+      await deleteDoc(doc(db, 'samples', id));
+    } catch (error) {
+      console.error('Ошибка удаления образца:', error);
+      setSyncStatus('error');
+      alert('Не удалось удалить образец.');
+    }
+  };
+
   const startEdit = (item: YarnItem) => {
     setEditingItem(item);
     setShowForm(true);
@@ -232,6 +297,11 @@ function App() {
     setViewingProjectsYarnId(yarnItemId);
   };
 
+  const startEditSample = (sample: Sample) => {
+    setEditingSample(sample);
+    setShowSampleForm(true);
+  };
+
   const viewingYarnItem = useMemo(() => {
     if (!viewingProjectsYarnId) return null;
     return items.find(item => item.id === viewingProjectsYarnId) || null;
@@ -240,16 +310,13 @@ function App() {
   const viewingProjects = useMemo(() => {
     if (!viewingProjectsYarnId) return [];
     return projects.filter(p => {
-      // Новая структура
       if (p.yarnUsage && Array.isArray(p.yarnUsage)) {
         return p.yarnUsage.some(u => u.yarnItemId === viewingProjectsYarnId);
       }
-      // Старая структура
       return (p as any).yarnItemId === viewingProjectsYarnId;
     });
   }, [viewingProjectsYarnId, projects]);
-
-  if (loading) {
+    if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex items-center justify-center">
         <div className="text-center">
@@ -286,10 +353,13 @@ function App() {
                   if (activeTab === 'yarn') {
                     setEditingItem(null);
                     setShowForm(true);
-                  } else {
+                  } else if (activeTab === 'projects') {
                     setEditingProject(null);
                     setProjectYarnId('');
                     setShowProjectForm(true);
+                  } else {
+                    setEditingSample(null);
+                    setShowSampleForm(true);
                   }
                 }}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
@@ -299,10 +369,10 @@ function App() {
               </button>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto">
             <button
               onClick={() => setActiveTab('yarn')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
                 activeTab === 'yarn'
                   ? 'bg-purple-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -313,7 +383,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('projects')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
                 activeTab === 'projects'
                   ? 'bg-purple-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -321,6 +391,17 @@ function App() {
             >
               <i className="fas fa-tshirt mr-2"></i>
               Проекты ({projects.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('samples')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'samples'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <i className="fas fa-th mr-2"></i>
+              Образцы ({samples.length})
             </button>
           </div>
         </div>
@@ -330,29 +411,32 @@ function App() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск по названию, артикулу, составу..." className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск..." className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm" />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 <i className="fas fa-times"></i>
               </button>
             )}
           </div>
-          {brands.length > 0 && (
-            <select value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm text-gray-700">
-              <option value="all">Все производители</option>
-              {brands.map((brand) => (<option key={brand} value={brand}>{brand}</option>))}
-            </select>
+          {activeTab === 'yarn' && (
+            <>
+              {brands.length > 0 && (
+                <select value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm text-gray-700">
+                  <option value="all">Все производители</option>
+                  {brands.map((brand) => (<option key={brand} value={brand}>{brand}</option>))}
+                </select>
+              )}
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm text-gray-700">
+                <option value="date">Сначала новые</option>
+                <option value="name">По названию</option>
+                <option value="brand">По производителю</option>
+                <option value="quantity">По количеству</option>
+              </select>
+            </>
           )}
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm text-gray-700">
-            <option value="date">Сначала новые</option>
-            <option value="name">По названию</option>
-            <option value="brand">По производителю</option>
-            <option value="quantity">По количеству</option>
-          </select>
         </div>
       </div>
-
-      <main className="max-w-7xl mx-auto px-4 pb-8">
+            <main className="max-w-7xl mx-auto px-4 pb-8">
         {syncStatus === 'error' && (
           <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
             <i className="fas fa-exclamation-triangle text-red-500"></i>
@@ -360,15 +444,15 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'yarn' ? (
+        {activeTab === 'yarn' && (
           filteredItems.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {filteredItems.map((item) => (
-                <YarnCard
-                  key={item.id}
-                  item={item}
+                <YarnCard 
+                  key={item.id} 
+                  item={item} 
                   projects={projects}
-                  onEdit={startEdit}
+                  onEdit={startEdit} 
                   onDelete={handleDelete}
                   onAddProject={startAddProject}
                   onViewProjects={viewProjects}
@@ -394,7 +478,9 @@ function App() {
               <h3 className="text-lg font-medium text-gray-600">Ничего не найдено</h3>
             </div>
           )
-        ) : (
+        )}
+
+        {activeTab === 'projects' && (
           projects.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {projects.map((project) => (
@@ -420,9 +506,35 @@ function App() {
             </div>
           )
         )}
-      </main>
 
-      {showForm && (
+        {activeTab === 'samples' && (
+          samples.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {samples.map((sample) => (
+                <SampleCard
+                  key={sample.id}
+                  sample={sample}
+                  yarnItems={items}
+                  onEdit={startEditSample}
+                  onDelete={handleDeleteSample}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20">
+              <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i className="fas fa-th text-5xl text-purple-400"></i>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Образцов пока нет</h2>
+              <p className="text-gray-600 mb-6">Создайте свой первый образец для расчёта плотности</p>
+              <button onClick={() => { setEditingSample(null); setShowSampleForm(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg">
+                <i className="fas fa-plus mr-2"></i>Создать образец
+              </button>
+            </div>
+          )
+        )}
+      </main>
+            {showForm && (
         <YarnForm
           onSubmit={editingItem ? handleEdit : handleAdd}
           onCancel={() => { setShowForm(false); setEditingItem(null); }}
@@ -437,6 +549,15 @@ function App() {
           initialData={editingProject}
           yarnItems={items}
           initialYarnId={projectYarnId}
+        />
+      )}
+
+      {showSampleForm && (
+        <SampleForm
+          onSubmit={editingSample ? handleEditSample : handleAddSample}
+          onCancel={() => { setShowSampleForm(false); setEditingSample(null); }}
+          initialData={editingSample}
+          yarnItems={items}
         />
       )}
 
