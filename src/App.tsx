@@ -151,6 +151,7 @@ function App() {
       const itemToAdd = { ...newYarn, dateAdded: new Date().toISOString() };
       await addDoc(collection(db, 'yarn_items'), itemToAdd);
       setShowForm(false);
+      setDuplicateData(null);
     } catch (error) {
       console.error('Ошибка добавления:', error);
       setSyncStatus('error');
@@ -376,6 +377,7 @@ function App() {
                 onClick={() => {
                   if (activeTab === 'yarn') {
                     setEditingItem(null);
+                    setDuplicateData(null);
                     setShowForm(true);
                   } else if (activeTab === 'projects') {
                     setEditingProject(null);
@@ -493,7 +495,7 @@ function App() {
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Каталог пуст</h2>
               <p className="text-gray-600 mb-6">Добавьте свою первую пряжу</p>
-              <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg">
+            <button onClick={() => { setEditingItem(null); setDuplicateData(null); setShowForm(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg">
                 <i className="fas fa-plus mr-2"></i>Добавить пряжу
               </button>
             </div>
