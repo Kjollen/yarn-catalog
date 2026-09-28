@@ -36,7 +36,7 @@ function App() {
   useEffect(() => {
     setSyncStatus('syncing');
     const q = query(collection(db, 'yarn_items'), orderBy('dateAdded', 'desc'));
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(q,
       (snapshot) => {
         const yarnItems: YarnItem[] = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -57,13 +57,13 @@ function App() {
 
   useEffect(() => {
     const q = collection(db, 'projects');
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(q,
       (snapshot) => {
         const projectItems: Project[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<Project, 'id'>),
         }));
-        projectItems.sort((a, b) => 
+        projectItems.sort((a, b) =>
           new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
         );
         setProjects(projectItems);
@@ -77,13 +77,13 @@ function App() {
 
   useEffect(() => {
     const q = collection(db, 'samples');
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(q,
       (snapshot) => {
         const sampleItems: Sample[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<Sample, 'id'>),
         }));
-        sampleItems.sort((a, b) => 
+        sampleItems.sort((a, b) =>
           new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
         );
         setSamples(sampleItems);
@@ -143,7 +143,9 @@ function App() {
     });
     return total;
   }, [items]);
-    const handleAdd = async (newYarn: YarnFormData) => {
+
+  // Обработчики для пряжи
+  const handleAdd = async (newYarn: YarnFormData) => {
     try {
       setSyncStatus('syncing');
       const itemToAdd = { ...newYarn, dateAdded: new Date().toISOString() };
@@ -191,12 +193,13 @@ function App() {
     }
   };
 
+  // Обработчики для проектов
   const handleAddProject = async (newProject: ProjectFormData) => {
     try {
       setSyncStatus('syncing');
-      const projectToAdd = { 
-        ...newProject, 
-        dateAdded: new Date().toISOString() 
+      const projectToAdd = {
+        ...newProject,
+        dateAdded: new Date().toISOString()
       };
       await addDoc(collection(db, 'projects'), projectToAdd);
       setShowProjectForm(false);
@@ -234,12 +237,13 @@ function App() {
     }
   };
 
+  // Обработчики для образцов
   const handleAddSample = async (newSample: SampleFormData) => {
     try {
       setSyncStatus('syncing');
-      const sampleToAdd = { 
-        ...newSample, 
-        dateAdded: new Date().toISOString() 
+      const sampleToAdd = {
+        ...newSample,
+        dateAdded: new Date().toISOString()
       };
       await addDoc(collection(db, 'samples'), sampleToAdd);
       setShowSampleForm(false);
@@ -282,6 +286,25 @@ function App() {
     setShowForm(true);
   };
 
+  const startDuplicate = (item: YarnItem) => {
+    // Создаём копию с временными id и датой
+    const duplicate: YarnItem = {
+      ...item,
+      id: 'temp-' + Date.now(), // Временный id
+      dateAdded: new Date().toISOString(), // Временная дата
+      // Очищаем уникальные поля для нового цвета
+      color: '',
+      colorHex: '#e8d5b7',
+      photo: '',
+      // Оставляем артикул, производителя, состав, вес, метраж - они одинаковые
+    };
+    setEditingItem(null);
+    setDuplicateData(duplicate);
+    setShowForm(true);
+  };
+
+  const [duplicateData, setDuplicateData] = useState<YarnItem | null>(null);
+
   const startAddProject = (yarnItemId: string) => {
     setProjectYarnId(yarnItemId);
     setEditingProject(null);
@@ -316,7 +339,8 @@ function App() {
       return (p as any).yarnItemId === viewingProjectsYarnId;
     });
   }, [viewingProjectsYarnId, projects]);
-    if (loading) {
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex items-center justify-center">
         <div className="text-center">
@@ -436,7 +460,8 @@ function App() {
           )}
         </div>
       </div>
-            <main className="max-w-7xl mx-auto px-4 pb-8">
+
+      <main className="max-w-7xl mx-auto px-4 pb-8">
         {syncStatus === 'error' && (
           <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
             <i className="fas fa-exclamation-triangle text-red-500"></i>
@@ -444,18 +469,20 @@ function App() {
           </div>
         )}
 
+        {/* Вкладка Пряжа */}
         {activeTab === 'yarn' && (
           filteredItems.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {filteredItems.map((item) => (
-                <YarnCard 
-                  key={item.id} 
-                  item={item} 
+                <YarnCard
+                  key={item.id}
+                  item={item}
                   projects={projects}
-                  onEdit={startEdit} 
+                  onEdit={startEdit}
                   onDelete={handleDelete}
                   onAddProject={startAddProject}
                   onViewProjects={viewProjects}
+                  onDuplicate={startDuplicate}
                 />
               ))}
             </div>
@@ -480,6 +507,7 @@ function App() {
           )
         )}
 
+        {/* Вкладка Проекты */}
         {activeTab === 'projects' && (
           projects.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -507,6 +535,7 @@ function App() {
           )
         )}
 
+        {/* Вкладка Образцы */}
         {activeTab === 'samples' && (
           samples.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -534,11 +563,13 @@ function App() {
           )
         )}
       </main>
-            {showForm && (
+
+      {/* Модальные окна */}
+      {showForm && (
         <YarnForm
           onSubmit={editingItem ? handleEdit : handleAdd}
-          onCancel={() => { setShowForm(false); setEditingItem(null); }}
-          initialData={editingItem}
+          onCancel={() => { setShowForm(false); setEditingItem(null); setDuplicateData(null); }}
+          initialData={editingItem || duplicateData}
         />
       )}
 
@@ -621,3 +652,4 @@ function App() {
 }
 
 export default App;
+
